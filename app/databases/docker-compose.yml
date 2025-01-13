@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: api
+    env_file:
+      - api/.env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - mongodb
+    networks:
+      - internal_network
+      - external_db_api
+
+  postgres:
+    image: postgres
+    env_file:
+      - postgres/.env
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - internal_network
+
+  mongodb:
+    image: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - internal_network
+
+volumes:
+  postgres_data:
+  mongodb_data:
+
+networks:
+  internal_network:
+    driver: bridge
+  external_db_api:
+    driver: bridge
