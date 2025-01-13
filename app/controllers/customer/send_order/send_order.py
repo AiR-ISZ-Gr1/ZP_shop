@@ -5,9 +5,30 @@ from datetime import datetime
 import requests
 import logging
 from typing import Optional, List
+from enum import Enum
 
 app = FastAPI()
 
+class OrderStatus(Enum):
+    """
+    Enumeration for representing all statuses an order can have.
+
+    Attributes:
+        PENDING (str): Order has been created but not processed.
+        PROCESSING (str): Order is being processed.
+        PACKAGING (str): Order is being packaged.
+        SHIPPED (str): Order has been shipped.
+        DELIVERED (str): Order has been delivered.
+        CANCELLED (str): Order has been cancelled.
+        RETURNED (str): Order has been returned.
+    """
+    PENDING = "pending"
+    PROCESSING = "processing"
+    PACKAGING = "packaging"
+    SHIPPED = "shipped"
+    DELIVERED = "delivered"
+    CANCELLED = "cancelled"
+    RETURNED = "returned"
 
 class OrderDb(BaseModel):
     cart_id: int
@@ -41,7 +62,7 @@ class Order(BaseModel):
     email: str
     payment_method: str
     user_id: int
-
+    total_amount: float
 
 @app.post("/submit_order/")
 async def submit_order(order: Order):
@@ -53,20 +74,18 @@ async def submit_order(order: Order):
     )
     response = requests.post("http://api:8000/addresses",
                              json=address.model_dump()).json()
-    address_id = response['id']
+    address_id = response.get('id')
 
     response = requests.post(f"http://api:8000/users/{order.user_id}").json()
-
     if 'cart_id' not in response:
         response = requests.post(
             f"http://api:8000/users/{order.user_id}/cart", json={}).json()
-        cart_id = response['id']
+        cart_id = response.get('id')
     else:
-        cart_id = response['cart_id']
+        cart_id = response.get('cart_id')
 
     items = requests.get(
         f"http://api:8000/carts/{cart_id}/items").json()
-
     products = [
         requests.get(f"http://api:8000/products/{item['product_id']}").json()
         for item in items
@@ -84,22 +103,19 @@ async def submit_order(order: Order):
             content=f"The following products are missing: {missing_quantity}"
         )
 
-    total_amount = sum(item['quantity'] * product['price']
-                       for item, product in zip(items, products))
-
+    # total_amount = round(sum(item['quantity'] * product['sell_price']
+    #                    for item, product in zip(items, products)),2)
     dborder = OrderDb(
-        status="placed",
-        total_amount=total_amount,
+        status="PENDING",
+        total_amount=order.total_amount,
         address_id=address_id,
         user_id=order.user_id,
         cart_id=cart_id,
     )
+    print(dborder.model_dump())
     response = requests.post("http://api:8000/orders",
-                             json=dborder.model_dump()).json()
-
-    # duplicate of
-    # response = requests.post(
-    #     f"http://api:8000/users/{order.user_id}/cart", json={}).json()
+                             json=dborder.model_dump())
+    
 
     return dict(message="OK")
 

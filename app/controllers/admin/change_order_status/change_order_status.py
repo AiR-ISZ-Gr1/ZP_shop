@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from typing import List
-from config import Order, Cart
+from config import Order, Cart, OrderStatus
 import requests
 
 
@@ -8,17 +8,29 @@ app = FastAPI()
 api_url = "http://api:8000"
 
 
+def get_product(id:str,quantity:int):
+    resp = requests.get(f"{api_url}/products/{id}")
+    if resp.status_code == 200:
+        item ={'name': resp.json().get('name'),
+               'id': resp.json().get('id'),
+               'sell_price': resp.json().get('sell_price'),
+               'quantity': quantity}
+        return item
+    else:
+        print(f'Failed to get your product: {id}')
+    
+
 # get all orders with given status
 @app.get("/orders", response_model=List[Order])
-def get_orders(status):
+def get_orders(order_status: str):
     response = requests.get(f'{api_url}/orders')
     if not response.status_code == 200:
         raise HTTPException(status_code=response.status_code, detail='ERROR')
     orders = [Order(**order) for order in response.json()]
-    if status == 'all':
+    if order_status == 'all':
         return [order for order in orders]
     else:
-        return [order for order in orders if order.status == status]
+        return [order for order in orders if order.status == order_status]
 
 
 
@@ -30,16 +42,11 @@ async def get_order(order_id: int):
         order = response.json()
         products = [
             item
-            for item in requests.get(f"{api_url}/carts/{order['cart_id']}/items").json()
+            for item in requests.get(f"{api_url}/carts/{order['cart_id']-1}/items").json()
         ]
-        # products_quantitis = [
-        #     item['product_quantity']
-        #     for item in requests.get(f"{api_url}/carts/{order['cart_id']}/items").json()
-        # ]
-        order['products'] = [
-            requests.get(f"{api_url}/products/{item['id']}").json() | item
-            for item in products                
-        ]
+        print(products)
+        order['products'] = [get_product(flower.get('product_id'),flower.get('quantity')) for flower in products]
+        order['address'] = requests.get(f'{api_url}/addresses/{order.get("address_id")}').json()
         return order
     else:
         raise HTTPException(status_code=404, detail="Orders not found")
@@ -47,9 +54,9 @@ async def get_order(order_id: int):
 
 # update order status by id and status
 @app.put("/orders/{order_id}", response_model=Order)
-def update_order(order_id: int, status: str):
+def update_order(order_id: int, order_status: str):
     order = get_order(order_id)
-    order.status = status
+    order['status'] = order_status
     response = requests.put(f"{api_url}/orders/{order_id}", json=order.dict())
     if response.status_code == 200:
         return response.json()

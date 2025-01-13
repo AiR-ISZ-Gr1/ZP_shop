@@ -7,7 +7,7 @@ __pycache__/
 .vscode/
 app/processes/chatbot/model/
 app/databases/qdrant/qdrant_data/
-app/databases/init/model/
+app/databases/api/src/model_st
 #python gitignore
 *.pyo
 *.pyd
@@ -23,5 +23,6 @@ __pycache__/
 
 scratchpad/
 *.db
+.env
 
 .DS_Store
