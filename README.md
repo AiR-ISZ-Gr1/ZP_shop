@@ -13,10 +13,6 @@ For running aplication *Docker* is required.
 
 1. Clone the repository:
 
-    ```bash
-    git clone https://github.com/AiR-ISZ-Gr1/systemy_rozproszone.git
-    ```
-
 2. Setup infrastructure:
 
     If on UNIX based system run:
